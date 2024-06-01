@@ -1,6 +1,6 @@
 # Messenger Bot
 
-This is a Node.js-based Facebook Messenger bot for handling various product-related queries. It integrates with a MySQL database and uses Sendinblue for sending email notifications.
+This project is a backend service for a Facebook Messenger bot, developed using Node.js. It handles various product-related queries by integrating with a MySQL database for data storage and retrieval. Additionally, it leverages Sendinblue for sending email notifications about product purchases. The tech stack includes Node.js for the server-side logic, MySQL for the database, Sendinblue for email services, and Ngrok for local development and testing with Facebook's webhooks. The bot supports commands to fetch product descriptions, prices, and shipping information, enhancing user interaction with automated responses.
 
 ## Features
 
@@ -29,7 +29,7 @@ This is a Node.js-based Facebook Messenger bot for handling various product-rela
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/messenger-bot.git
+    git clone https://github.com/EhabLama/messenger-bot.git
     cd messenger-bot
     ```
 
@@ -38,37 +38,46 @@ This is a Node.js-based Facebook Messenger bot for handling various product-rela
     npm install
     ```
 
-3. Set up your MySQL database and import the products. Modify `loadProducts.js` to match your database settings and run:
+3. Set up your MySQL database:
+    - Create a database named `productDB`.
+    - Run the following commands to create the `products` table:
+    ```sh
+    CREATE TABLE products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sku INT NOT NULL UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(50),
+        price DECIMAL(10, 2),
+        upc VARCHAR(50),
+        category JSON,
+        shipping DECIMAL(10, 2),
+        description TEXT,
+        manufacturer VARCHAR(100),
+        model VARCHAR(50),
+        url VARCHAR(255),
+        image VARCHAR(255)
+    );
+    ```
+
+4. Populate the database:
+    - Run the script to load products into the database:
     ```sh
     node src/scripts/loadProducts.js
     ```
 
-4. Create a `.env` file in the root directory and configure your environment variables:
-    ```env
-    DB_HOST=localhost
-    DB_USER=root
-    DB_PASSWORD=yourpassword
-    DB_NAME=productDB
-    VERIFY_TOKEN=your_verify_token
-    PAGE_ACCESS_TOKEN=your_page_access_token
-    SENDINBLUE_API_KEY=your_sendinblue_api_key
-    SENDINBLUE_FROM_EMAIL=your_sender_email
-    SENDINBLUE_TO_EMAIL=your_recipient_email
+5. Start your server:
+    ```sh
+    npm start
     ```
 
-5. Run Ngrok to expose your local server to the internet:
+6. Run Ngrok to expose your local server to the internet:
     ```sh
     ngrok http 3000
     ```
 
-6. Set up your Facebook page webhook with the Ngrok URL and the `/webhook` endpoint:
+7. Set up your Facebook page webhook with the Ngrok URL and the `/webhook` endpoint:
     - **Callback URL**: `https://<your-ngrok-url>/webhook`
     - **Verify Token**: Use the same token set in your `.env` file (`VERIFY_TOKEN`).
-
-7. Start your server:
-    ```sh
-    npm start
-    ```
 
 ### Facebook Page Setup
 
@@ -76,43 +85,60 @@ This is a Node.js-based Facebook Messenger bot for handling various product-rela
 2. **Create a Facebook App**:
     - Go to the [Facebook Developer Portal](https://developers.facebook.com/) and create a new app.
     - Add the Messenger product to your app.
-    - Generate a Page Access Token and subscribe your webhook to the page events.
+    - Generate a Page Access Token and subscribe your webhook to the page events and add it to the env file.
+
+### Set up Sendinblue
+
+1. Create an account on [Sendinblue](https://www.sendinblue.com/).
+2. Verify the sender email address.
+3. Get your API key from the Sendinblue dashboard.
 
 ### Demo
 
 Here are some screenshots demonstrating the bot's functionality:
 
-1. **Facebook Page**:
-    ![Facebook Page](static/demo-images/fb_page.png)
-    *Description*: A screenshot of the Facebook page that the bot is connected to.
+### 1. Facebook Page Setup
 
-2. **Greeting Message**:
-    ![Greeting Message](static/demo-images/messenger_bot_greeting.png)
-    *Description*: The bot sends a random greeting message when a user messages the page for the first time.
+![Facebook Page](static/demo-images/fb_page.png)
 
-3. **Help Command**:
-    ![Help Command](static/demo-images/messenger_bot_help.png)
-    *Description*: The bot responds to the `/help` command, listing all available commands.
+The bot is connected to a Facebook Page for interaction with users.
 
-4. **Product Queries**:
-    ![Product Queries](static/demo-images/messenger_bot_queries.png)
-    *Description*: The bot responds to product queries like `/desc`, `/price`, and `/shipping`.
+### 2. Greeting Message
 
-5. **Purchasing Product**:
-    ![Purchasing Product](static/demo-images/messenger_bot_purchase.png)
-    *Description*: The bot processes purchase commands and sends email notifications.
+![Greeting Message](static/demo-images/messenger_bot_greeting.png)
 
-6. **Email Notification**:
-    ![Email Notification](static/demo-images/messenger_bot_email.png)
-    *Description*: An example of the email notification sent to the admin when a user makes a purchase.
+The bot sends a random greeting when a user messages for the first time.
 
-7. **Terminal Output**:
-    ![Terminal Output](static/demo-images/terminal_output.png)
-    *Description*: The server logs showing incoming messages and responses.
+### 3. Help Command
 
-## Contributing
+![Help Command](static/demo-images/messenger_bot_help.png)
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on the code of conduct, and the process for submitting pull requests.
+The `/help` command provides a list of available commands to the user.
+
+### 4. Product Queries
+
+![Product Queries](static/demo-images/messenger_bot_queries.png)
+
+The bot responds to product queries like `/desc`, `/price`, and `/shipping`.
+
+### 5. Purchase Handling
+
+![Purchase Handling](static/demo-images/messenger_bot_purchase.png)
+
+The bot processes purchase requests and sends email notifications.
+
+### 6. Email Notification
+
+![Email Notification](static/demo-images/messenger_bot_email.png)
+
+The bot sends an email notification when a purchase is made.
+
+### 7. Terminal Output
+
+![Terminal Output](static/demo-images/terminal_output.png)
+
+Terminal output showing the bot's responses and operations.
+
 
 ## License
 

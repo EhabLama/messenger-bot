@@ -1,9 +1,15 @@
-const request = require('request');
-const { VERIFY_TOKEN, PAGE_ACCESS_TOKEN } = require('../utils/constants');
+const { VERIFY_TOKEN, GENERIC_RESPONSE, PAGE_ACCESS_TOKEN } = require('../utils/constants');
 const { getRandomGreeting } = require('../services/greetingService');
-const { getProductBySku } = require('../services/productService');
-const { sendEmailNotification } = require('../services/emailService');
-const pool = require('../database/db');
+const { getHelpMessage } = require('../services/helpService');
+const {
+  handleDescCommand,
+  handlePriceCommand,
+  handleShippingCommand,
+  handleBuyCommand,
+} = require('../services/productService');
+const request = require('request');
+
+let userSessions = {};
 
 exports.verifyWebhook = (req, res) => {
   console.log('Received GET /webhook');
@@ -35,6 +41,10 @@ exports.handleWebhook = (req, res) => {
       let webhook_event = entry.messaging[0];
       let sender_psid = webhook_event.sender.id;
 
+      if (!userSessions[sender_psid]) {
+        userSessions[sender_psid] = { firstMessage: true };
+      }
+
       if (webhook_event.message) {
         handleMessage(sender_psid, webhook_event.message);
       }
@@ -46,96 +56,58 @@ exports.handleWebhook = (req, res) => {
 };
 
 function handleMessage(sender_psid, received_message) {
-  let response;
-
-  if (received_message.text) {
-    const messageText = received_message.text.toLowerCase();
-
-    if (messageText.startsWith('/desc')) {
-      const sku = parseInt(messageText.split(' ')[1]);
-      getProductBySku(sku, (error, product) => {
-        if (error) {
-          response = { "text": "An error occurred while fetching the product information." };
-        } else if (product) {
-          response = { "text": product.description };
-        } else {
-          response = { "text": "Sorry, I couldn't find that product." };
-        }
+    let response;
+  
+    if (received_message.text) {
+      const messageText = received_message.text.toLowerCase();
+  
+      if (userSessions[sender_psid].firstMessage) {
+        userSessions[sender_psid].firstMessage = false;
+        response = {
+          "text": `${getRandomGreeting()} Use the /help command to see what I can do for you.`
+        };
         callSendAPI(sender_psid, response);
-      });
-    } else if (messageText.startsWith('/price')) {
-      const sku = parseInt(messageText.split(' ')[1]);
-      getProductBySku(sku, (error, product) => {
-        if (error) {
-          response = { "text": "An error occurred while fetching the product information." };
-        } else if (product) {
-          response = { "text": product.price.toString() };
-        } else {
-          response = { "text": "Sorry, I couldn't find that product." };
-        }
+      } else if (messageText.startsWith('/help')) {
+        handleHelpCommand(sender_psid);
+      } else if (messageText.startsWith('/desc')) {
+        handleDescCommand(sender_psid, messageText);
+      } else if (messageText.startsWith('/price')) {
+        handlePriceCommand(sender_psid, messageText);
+      } else if (messageText.startsWith('/shipping')) {
+        handleShippingCommand(sender_psid, messageText);
+      } else if (messageText.startsWith('/buy')) {
+        handleBuyCommand(sender_psid, messageText);
+      } else {
+        response = { "text": GENERIC_RESPONSE };
         callSendAPI(sender_psid, response);
-      });
-    } else if (messageText.startsWith('/shipping')) {
-      const sku = parseInt(messageText.split(' ')[1]);
-      getProductBySku(sku, (error, product) => {
-        if (error) {
-          response = { "text": "An error occurred while fetching the product information." };
-        } else if (product) {
-          response = { "text": product.shipping.toString() };
-        } else {
-          response = { "text": "Sorry, I couldn't find that product." };
-        }
-        callSendAPI(sender_psid, response);
-      });
-    } else if (messageText.startsWith('/buy')) {
-      const sku = parseInt(messageText.split(' ')[1]);
-      getProductBySku(sku, (error, product) => {
-        if (error) {
-          response = { "text": "An error occurred while processing your purchase." };
-        } else if (product) {
-          sendEmailNotification(sender_psid, sku);
-          response = { "text": `Thank you for your purchase of ${product.name}. You will receive an email confirmation shortly.` };
-          logPurchase(sender_psid, sku);
-        } else {
-          response = { "text": "Sorry, I couldn't find that product." };
-        }
-        callSendAPI(sender_psid, response);
-      });
-    } else {
-      response = { "text": `${getRandomGreeting()} You sent the message: "${received_message.text}". Now, I can process it.` };
-      callSendAPI(sender_psid, response);
+      }
     }
   }
+
+function handleHelpCommand(sender_psid) {
+  const response = { "text": getHelpMessage() };
+  callSendAPI(sender_psid, response);
 }
 
-function logPurchase(sender_psid, sku) {
-  pool.query('INSERT INTO purchases (sender_psid, sku) VALUES (?, ?)', [sender_psid, sku], (error, results) => {
-    if (error) {
-      console.error('Error logging purchase:', error);
-    } else {
-      console.log('Purchase logged successfully:', results);
-    }
-  });
-}
 
 function callSendAPI(sender_psid, response) {
-  let request_body = {
-    "recipient": {
-      "id": sender_psid
-    },
-    "message": response
-  };
-
-  request({
-    "uri": "https://graph.facebook.com/v12.0/me/messages",
-    "qs": { "access_token": PAGE_ACCESS_TOKEN },
-    "method": "POST",
-    "json": request_body
-  }, (err, res, body) => {
-    if (!err) {
-      console.log('message sent!');
-    } else {
-      console.error("Unable to send message:" + err);
-    }
-  });
-}
+    let request_body = {
+      "recipient": {
+        "id": sender_psid
+      },
+      "message": response
+    };
+  
+    request({
+      "uri": "https://graph.facebook.com/v12.0/me/messages",
+      "qs": { "access_token": PAGE_ACCESS_TOKEN },
+      "method": "POST",
+      "json": request_body
+    }, (err, res, body) => {
+      if (!err) {
+        console.log('message sent!');
+      } else {
+        console.error("Unable to send message:" + err);
+      }
+    });
+  }
